@@ -1,0 +1,30 @@
+Developer
+    │
+    ▼
+Git Push
+    │
+    ▼
+GitHub / Azure DevOps
+    │
+    ├── Terraform FMT
+    ├── Terraform Validate
+    ├── TFLint
+    ├── tfsec
+    ├── Checkov
+    ├── Infracost
+    ├── Terraform Plan
+    │
+    ▼
+Manual Approval
+    │
+    ▼
+Terraform Apply
+    │
+    ▼
+Ansible Configuration
+    │
+    ▼
+VM Validation
+    │
+    ▼
+Monitoring / Backup Registration
