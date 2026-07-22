@@ -1,0 +1,27 @@
+terraform-enterprise-vm/
+│
+├── modules/
+│   ├── network/
+│   ├── security/
+│   ├── vm/
+│   ├── monitoring/
+│   └── backup/
+│
+├── environments/
+│   ├── dev/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   ├── terraform.tfvars
+│   │   └── backend.tf
+│   │
+│   ├── test/
+│   └── prod/
+│
+├── policies/
+├── scripts/
+├── ansible/
+├── pipelines/
+│
+├── versions.tf
+├── providers.tf
+└── README.md
