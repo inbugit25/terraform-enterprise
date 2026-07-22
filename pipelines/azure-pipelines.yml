@@ -1,0 +1,157 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+variables:
+
+  TF_VERSION: '1.10.5'
+
+stages:
+
+# --------------------------------------------------
+# Validate
+# --------------------------------------------------
+
+- stage: Validate
+
+  jobs:
+
+  - job: TerraformValidation
+
+    pool:
+      vmImage: ubuntu-latest
+
+    steps:
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: $(TF_VERSION)
+
+    - script: terraform fmt -recursive -check
+      displayName: Terraform Format Check
+
+    - script: terraform init
+      displayName: Terraform Init
+
+    - script: terraform validate
+      displayName: Terraform Validate
+
+# --------------------------------------------------
+# Security Scan
+# --------------------------------------------------
+
+- stage: SecurityScan
+
+  dependsOn: Validate
+
+  jobs:
+
+  - job: Security
+
+    pool:
+      vmImage: ubuntu-latest
+
+    steps:
+
+    - script: |
+        curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+        tfsec .
+      displayName: TFSEC Scan
+
+    - script: |
+        pip install checkov
+        checkov -d .
+      displayName: Checkov Scan
+
+# --------------------------------------------------
+# Cost Analysis
+# --------------------------------------------------
+
+- stage: CostEstimate
+
+  dependsOn: SecurityScan
+
+  jobs:
+
+  - job: Cost
+
+    pool:
+      vmImage: ubuntu-latest
+
+    steps:
+
+    - script: |
+        curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
+      displayName: Install Infracost
+
+    - script: |
+        infracost breakdown \
+        --path . \
+        --format table
+      displayName: Cost Analysis
+
+# --------------------------------------------------
+# Plan
+# --------------------------------------------------
+
+- stage: Plan
+
+  dependsOn: CostEstimate
+
+  jobs:
+
+  - job: TerraformPlan
+
+    pool:
+      vmImage: ubuntu-latest
+
+    steps:
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: $(TF_VERSION)
+
+    - script: terraform init
+      displayName: Terraform Init
+
+    - script: |
+        terraform plan \
+          -var-file=environments/prod/terraform.tfvars \
+          -out=tfplan
+      displayName: Terraform Plan
+
+    - publish: tfplan
+      artifact: TerraformPlan
+
+# --------------------------------------------------
+# Apply
+# --------------------------------------------------
+
+- stage: Apply
+
+  dependsOn: Plan
+
+  jobs:
+
+  - deployment: Production
+
+    environment: Production
+
+    strategy:
+
+      runOnce:
+
+        deploy:
+
+          steps:
+
+          - download: current
+            artifact: TerraformPlan
+
+          - script: terraform init
+            displayName: Terraform Init
+
+          - script: terraform apply tfplan
+            displayName: Terraform Apply
