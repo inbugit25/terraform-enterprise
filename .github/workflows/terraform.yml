@@ -1,0 +1,94 @@
+name: Enterprise Terraform
+
+on:
+
+  push:
+    branches:
+      - main
+
+  pull_request:
+
+jobs:
+
+  validate:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - uses: actions/checkout@v4
+
+    - uses: hashicorp/setup-terraform@v3
+
+    - run: terraform fmt -recursive -check
+    - run: terraform init
+    - run: terraform validate
+
+  tfsec:
+
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - uses: actions/checkout@v4
+
+    - uses: aquasecurity/tfsec-action@v1.0.3
+
+  checkov:
+
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - uses: actions/checkout@v4
+
+    - run: pip install checkov
+    - run: checkov -d .
+
+  plan:
+
+    needs:
+      - tfsec
+      - checkov
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - uses: actions/checkout@v4
+
+    - uses: hashicorp/setup-terraform@v3
+
+    - run: terraform init
+
+    - run: |
+        terraform plan \
+        -var-file=environments/prod/terraform.tfvars \
+        -out tfplan
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: tfplan
+        path: tfplan
+
+  apply:
+
+    needs: plan
+
+    runs-on: ubuntu-latest
+
+    environment: production
+
+    steps:
+
+    - uses: actions/checkout@v4
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: tfplan
+
+    - run: terraform init
+
+    - run: terraform apply -auto-approve tfplan
